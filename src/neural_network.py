@@ -81,7 +81,7 @@ class DataSet:
         if data_strings != [] and label_string != "":
             self.init(data_strings, label_string)
 
-    def parse_label(label: str) -> int:
+    def parse_label(self, label: str) -> int:
         """takes a string containing a numerical value
         strips all non numeric characters and outputs the integer value"""
         new_label = ""
