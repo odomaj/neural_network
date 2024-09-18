@@ -14,7 +14,13 @@ def normal_distribution_error(distribution: np.array) -> float:
 
 
 class Data:
+    """class to hold a data point
+    contains a numpy array and an integer value representing
+    positive or negative"""
+
     def __init__(self, data_string="", label="") -> None:
+        """if a data_string and a label is passed will initialize
+        the data object"""
         self.initialized = False
         if data_string != "" and label != "":
             self.from_str(data_string, label)
@@ -27,14 +33,15 @@ class Data:
         return np.array(floats)
 
     def from_str(self, string: str, label: int) -> None:
-        """takes a line from the input file and outputs a tuple
-        containing an np.array of the floats in the line, and the value
-        of either the POSITIVE or NEGATIVE flag"""
+        """takes a line from the data input file and the
+        corresponding integer label and updates the initialization state"""
         self.array = self.get_array(list(filter(None, string.split(" "))))
         self.label = label
         self.initialized = True
 
     def __getitem__(self, key: int) -> float:
+        """returns the item in the numpy array if the data object is
+        initialized and the item exists"""
         if not self.initialized:
             print("[ERROR] tried to get item from unitialized Data object")
             return None
@@ -47,6 +54,8 @@ class Data:
         return self.array[key]
 
     def __str__(self) -> str:
+        """outputs a string containing all of the elements in the numpy
+        array separated by spaces"""
         if not self.initialized:
             return ""
         string = ""
@@ -55,28 +64,38 @@ class Data:
         return string
 
     def full_str(self) -> str:
+        """outputs a string containing all of the elements in the numpy array
+        separated by spaces, followed by the label"""
         if not self.initialized:
             return ""
         return f"{self}{self.label}"
 
 
 class DataSet:
+    """object to store a list of Data objects"""
+
     def __init__(self, data_strings=[], label_string="") -> None:
+        """if data_strings and label_string are not the default values
+        initializes the DataSet with the passed values"""
         self.initialized = False
         self.data_list = None
         if data_strings != [] and label_string != "":
             self.init(data_strings, label_string)
 
-    def parse_label(lable: str) -> int:
+    def parse_label(label: str) -> int:
+        """takes a string containing a numerical value
+        strips all non numeric characters and outputs the integer value"""
         new_label = ""
-        for c in lable:
+        for c in label:
             if c == ".":
                 break
             if c in INTEGER_CHARS:
                 new_label += c
-        return int(new_label.strip())
+        return int(new_label)
 
     def init(self, data_strings: list, label_string: str) -> None:
+        """constructs a list of Data objects from the passed data_strings
+        and label_string and updates the internal intialization state"""
         labels = label_string.split(",")
         for i in range(len(labels)):
             labels[i] = parse_label(labels[i])
@@ -92,12 +111,15 @@ class DataSet:
             )
         self.initialized = True
 
-    def __getitem__(self, key: int) -> tuple:
+    def __getitem__(self, key: int) -> Data:
+        """returns the Data object at the passed index"""
         if not self.initialized:
             return None
         return self.data_list[key]
 
     def __str__(self) -> str:
+        """returns a string containing all the Data objects separated by
+        newline characters"""
         if not self.initialized:
             return ""
         output = ""
@@ -106,6 +128,8 @@ class DataSet:
         return output
 
     def full_str(self) -> str:
+        """returns a string containing all the Data objects full strings
+        separated by newline characters"""
         if not self.initialized:
             return ""
         output = ""
