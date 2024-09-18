@@ -97,7 +97,7 @@ class DataSet:
         and label_string and updates the internal intialization state"""
         labels = label_string.split(",")
         for i in range(len(labels)):
-            labels[i] = parse_label(labels[i])
+            labels[i] = self.parse_label(labels[i])
 
         if len(data_strings) != len(labels):
             print("[WARNING] data is incompatible with labels")
@@ -195,16 +195,6 @@ class Network:
         for layer in self.layers:
             string += f"{layer} "
         return string
-
-
-def parse_label(lable: str) -> int:
-    new_lable = ""
-    for c in lable:
-        if c == ".":
-            break
-        if c in INTEGER_CHARS:
-            new_lable += c
-    return int(new_lable.strip())
 
 
 def get_data(input_data_file_path: str, input_label_file_path: str) -> DataSet:
