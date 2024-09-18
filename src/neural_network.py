@@ -2,8 +2,7 @@ from get_file import get_file
 import numpy as np
 import sys
 
-POSITIVE = "-1.0"
-NEGATIVE = "1.0"
+
 DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
 DEFAULT_LABEL_INPUT_PATH = "../data/second_test/a2-test-label.txt"
 INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
