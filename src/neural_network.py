@@ -2,8 +2,7 @@ from get_file import get_file
 import numpy as np
 import sys
 import math
-from random import seed
-from random import random
+from random import seed, random
 
 
 DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
@@ -47,7 +46,7 @@ class Data:
         if not self.initialized:
             print("[ERROR] tried to get item from unitialized Data object")
             return None
-        if key - 1 > len(self.array):
+        if key + 1 > len(self.array):
             print(
                 f"[ERROR] tried to read from index {key} from a Data object of"
                 f" length {len(self.array)}"
@@ -117,6 +116,12 @@ class DataSet:
         """returns the Data object at the passed index"""
         if not self.initialized:
             return None
+        if key + 1 > len(self.data_list):
+            print(
+                f"[ERROR] tried to read from index {key} from a DataSet object"
+                f" of length {len(self.data_list)}"
+            )
+            return None
         return self.data_list[key]
 
     def __str__(self) -> str:
@@ -139,22 +144,17 @@ class DataSet:
             output += f"{data.full_str()}\n"
         return output
 
-"""
-class Neuron:
-    def __init__(self) -> None:
-        self.weights = None
 
-    def square_error(
-        self,
-        value: np.array,
-        distribution_error,
-    ) -> float:
-        if len(self.weights) != len(value):
-            -2.0
-        square_errors = np.zeros(len(self.weights))
-        for i in range(len(value)):
-            square_errors[i] = 0.5
-        return distribution_error(square_errors)
+class Neuron:
+    def __init__(self, inputs=0) -> None:
+        self.weights = None
+        self.initialized = False
+        if inputs != 0:
+            self.init(inputs)
+
+    def init(self, inputs: int) -> None:
+        self.weights = np.array([random() for i in range(inputs + 1)])
+        self.initialized = True
 
     def __getitem__(self, key: int) -> float:
         return self.weights[key]
@@ -167,8 +167,15 @@ class Neuron:
 
 
 class Layer:
-    def __init__(self) -> None:
+    def __init__(self, neurons=0, weights=0) -> None:
         self.neurons = None
+        self.initialized = False
+        if neurons != 0 and weights != 0:
+            self.init(neurons)
+
+    def init(self, neurons: int, weights: int) -> None:
+        self.neurons = [Neuron(weights) for i in range(neurons)]
+        self.initialized = True
 
     def __getitem__(self, key: int) -> Neuron:
         return self.neurons[key]
@@ -198,23 +205,32 @@ class Network:
         for layer in self.layers:
             string += f"{layer} "
         return string
-"""
+
 
 def initializeNetwork(ninputs, nhidden, noutputs):
     network = list()
-    #list of numpy arrays holding the wieghts for each neuron in the hidden layer
-    hidden_layer = [np.array([random() for i in range(ninputs +1)]) for i in range(nhidden)]
+    # list of numpy arrays holding the wieghts for each neuron in the hidden layer
+    hidden_layer = [
+        np.array([random() for i in range(ninputs + 1)])
+        for i in range(nhidden)
+    ]
     network.append(hidden_layer)
-    #list of numpy arrays holding the weights for the neuron in the output layer
-    output_layer = [np.array([random() for i in range(nhidden +1)]) for i in range(noutputs)]
+    # list of numpy arrays holding the weights for the neuron in the output layer
+    output_layer = [
+        np.array([random() for i in range(nhidden + 1)])
+        for i in range(noutputs)
+    ]
     network.append(output_layer)
     return network
 
+
 def gradientDescent(W, inputs):
-    z =0
+    z = 0
     for i in range(len(W)):
-        z += np.dot(W[i],np.array(inputs.getitem(i)))
-    gradient = (1-math.tanh(z)) * np.array(inputs[0]) 
+        print(np.dot(W[i], inputs[i].array))
+        z += np.dot(W[i], inputs[i].array)
+    # print(z)
+    gradient = (1 - math.tanh(z)) * np.array(inputs[0])
     print(gradient)
 
     w = 0
@@ -247,18 +263,14 @@ if __name__ == "__main__":
         input_label_file_path = sys.argv[2]
 
     data_list = get_data(input_data_file_path, input_label_file_path)
-    
+
     seed(1)
-    #initializing a network with 100 inputs, 50 nodes in the hidden layer, and 1 neuron in the output layer
-    network = initializeNetwork(100,50,1)
-    hidden_layer = network[0] #list of nparray weights for each neuron
-    output_layer = network[1] #list of nparray weights for output neuron
-    
+    # initializing a network with 100 inputs, 50 nodes in the hidden layer, and 1 neuron in the output layer
+    network = initializeNetwork(100, 50, 1)
+    hidden_layer = network[0]  # list of nparray weights for each neuron
+    output_layer = network[1]  # list of nparray weights for output neuron
+
     single_neuron = hidden_layer[0]
-    print(single_neuron)
+    # print(single_neuron)
     w = gradientDescent(single_neuron, data_list)
-    print(w)
-
-
-    
-    
+    # print(w)
