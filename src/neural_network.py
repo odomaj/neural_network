@@ -95,7 +95,7 @@ class DataSet:
     def __getitem__(self, key: int) -> tuple:
         if not self.initialized:
             return None
-        return (self.data_list[key], self.label_list[key])
+        return self.data_list[key]
 
     def __str__(self) -> str:
         if not self.initialized:
