@@ -1,6 +1,9 @@
 from get_file import get_file
 import numpy as np
 import sys
+import math
+from random import seed
+from random import random
 
 
 DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
@@ -136,7 +139,7 @@ class DataSet:
             output += f"{data.full_str()}\n"
         return output
 
-
+"""
 class Neuron:
     def __init__(self) -> None:
         self.weights = None
@@ -195,6 +198,29 @@ class Network:
         for layer in self.layers:
             string += f"{layer} "
         return string
+"""
+
+def initializeNetwork(ninputs, nhidden, noutputs):
+    network = list()
+    #list of numpy arrays holding the wieghts for each neuron in the hidden layer
+    hidden_layer = [np.array([random() for i in range(ninputs +1)]) for i in range(nhidden)]
+    network.append(hidden_layer)
+    #list of numpy arrays holding the weights for the neuron in the output layer
+    output_layer = [np.array([random() for i in range(nhidden +1)]) for i in range(noutputs)]
+    network.append(output_layer)
+    return network
+
+def gradientDescent(W, inputs):
+    z =0
+    for i in range(len(W)):
+        z += np.dot(W[i],np.array(inputs.getitem(i)))
+    gradient = (1-math.tanh(z)) * np.array(inputs[0]) 
+    print(gradient)
+
+    w = 0
+    while gradient != 0:
+        w = w - gradient
+    return w
 
 
 def get_data(input_data_file_path: str, input_label_file_path: str) -> DataSet:
@@ -210,7 +236,6 @@ def get_data(input_data_file_path: str, input_label_file_path: str) -> DataSet:
             f"[WARNING] data from {data_file.absolute()} is incompatible with"
             f" labels from {label_file.absolute()}"
         )
-
     return DataSet(data, labels)
 
 
@@ -222,3 +247,18 @@ if __name__ == "__main__":
         input_label_file_path = sys.argv[2]
 
     data_list = get_data(input_data_file_path, input_label_file_path)
+    
+    seed(1)
+    #initializing a network with 100 inputs, 50 nodes in the hidden layer, and 1 neuron in the output layer
+    network = initializeNetwork(100,50,1)
+    hidden_layer = network[0] #list of nparray weights for each neuron
+    output_layer = network[1] #list of nparray weights for output neuron
+    
+    single_neuron = hidden_layer[0]
+    print(single_neuron)
+    w = gradientDescent(single_neuron, data_list)
+    print(w)
+
+
+    
+    
