@@ -2,12 +2,116 @@ from get_file import get_file
 import numpy as np
 import sys
 
-
-DEFAULT_INPUT_PATH = "../data/input.txt"
+POSITIVE = "-1.0"
+NEGATIVE = "1.0"
+DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
+DEFAULT_LABEL_INPUT_PATH = "../data/second_test/a2-test-label.txt"
+INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
 
 
 def normal_distribution_error(distribution: np.array) -> float:
     return np.mean(distribution)
+
+
+class Data:
+    def __init__(self, data_string="", label="") -> None:
+        self.initialized = False
+        if data_string != "" and label != "":
+            self.from_str(data_string, label)
+
+    def get_array(self, strings: list) -> np.array:
+        """takes a list of strings and outputs an np.array of floats"""
+        floats = []
+        for string in strings:
+            floats.append(float(string))
+        return np.array(floats)
+
+    def from_str(self, string: str, label: int) -> None:
+        """takes a line from the input file and outputs a tuple
+        containing an np.array of the floats in the line, and the value
+        of either the POSITIVE or NEGATIVE flag"""
+        self.array = self.get_array(list(filter(None, string.split(" "))))
+        self.label = label
+        self.initialized = True
+
+    def __getitem__(self, key: int) -> float:
+        if not self.initialized:
+            print("[ERROR] tried to get item from unitialized Data object")
+            return None
+        if key - 1 > len(self.array):
+            print(
+                f"[ERROR] tried to read from index {key} from a Data object of"
+                f" length {len(self.array)}"
+            )
+            return None
+        return self.array[key]
+
+    def __str__(self) -> str:
+        if not self.initialized:
+            return ""
+        string = ""
+        for element in self.array:
+            string += f"{element} "
+        return string
+
+    def full_str(self) -> str:
+        if not self.initialized:
+            return ""
+        return f"{self}{self.label}"
+
+
+class DataSet:
+    def __init__(self, data_strings=[], label_string="") -> None:
+        self.initialized = False
+        self.data_list = None
+        if data_strings != [] and label_string != "":
+            self.init(data_strings, label_string)
+
+    def parse_label(lable: str) -> int:
+        new_label = ""
+        for c in lable:
+            if c == ".":
+                break
+            if c in INTEGER_CHARS:
+                new_label += c
+        return int(new_label.strip())
+
+    def init(self, data_strings: list, label_string: str) -> None:
+        labels = label_string.split(",")
+        for i in range(len(labels)):
+            labels[i] = parse_label(labels[i])
+
+        if len(data_strings) != len(labels):
+            print("[WARNING] data is incompatible with labels")
+
+        data_count = min(len(data_strings), len(labels))
+        self.data_list = []
+        for i in range(data_count):
+            self.data_list.append(
+                Data(data_string=data_strings[i], label=labels[i])
+            )
+        self.initialized = True
+
+    def __getitem__(self, key: int) -> tuple:
+        if not self.initialized:
+            return None
+        return (self.data_list[key], self.label_list[key])
+
+    def __str__(self) -> str:
+        if not self.initialized:
+            return ""
+        output = ""
+        for data in self.data_list:
+            output += f"{data}\n"
+        return output
+
+    def full_str(self) -> str:
+        if not self.initialized:
+            return ""
+        output = ""
+        for data in self.data_list:
+            output += f"{data.full_str()}\n"
+        return output
 
 
 class Neuron:
@@ -70,15 +174,38 @@ class Network:
         return string
 
 
+def parse_label(lable: str) -> int:
+    new_lable = ""
+    for c in lable:
+        if c == ".":
+            break
+        if c in INTEGER_CHARS:
+            new_lable += c
+    return int(new_lable.strip())
+
+
+def get_data(input_data_file_path: str, input_label_file_path: str) -> DataSet:
+    data_file = get_file(input_data_file_path)
+    label_file = get_file(input_label_file_path)
+    with data_file.open("r") as file:
+        data = file.readlines()
+    with label_file.open("r") as file:
+        labels = file.read()
+
+    if len(labels.split(",")) != len(data):
+        print(
+            f"[WARNING] data from {data_file.absolute()} is incompatible with"
+            f" labels from {label_file.absolute()}"
+        )
+
+    return DataSet(data, labels)
+
+
 if __name__ == "__main__":
-    input_file_path = DEFAULT_INPUT_PATH
-    if len(sys.argv) > 2:
-        input_file_path = sys.argv[1]
+    input_data_file_path = DEFAULT_DATA_INPUT_PATH
+    input_label_file_path = DEFAULT_LABEL_INPUT_PATH
+    if len(sys.argv) >= 3:
+        input_data_file_path = sys.argv[1]
+        input_label_file_path = sys.argv[2]
 
-    neural_network = Network()
-    with get_file(input_file_path).open("r") as file:
-        if not neural_network.parse_string(file.read()):
-            print("[ERROR] network string failed to parse")
-            sys.exit()
-
-    neural_network.backpropagation()
+    data_list = get_data(input_data_file_path, input_label_file_path)
