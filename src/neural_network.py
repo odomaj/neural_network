@@ -1,13 +1,16 @@
 from get_file import get_file
 import numpy as np
 import sys
-import math
+from math import tanh, sinh, cosh
 from random import seed, random
 
 
 DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
 DEFAULT_LABEL_INPUT_PATH = "../data/second_test/a2-test-label.txt"
 INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
+
+NUMBER_OF_HIDDEN_LAYERS = 1
+NUMBER_OF_OUTPUTS = 1
 
 
 def normal_distribution_error(distribution: np.array) -> float:
@@ -19,12 +22,28 @@ class Data:
     contains a numpy array and an integer value representing
     positive or negative"""
 
-    def __init__(self, data_string="", label="") -> None:
+    def __init__(
+        self,
+        data_string=None,
+        data=None,
+        label=None,
+    ) -> None:
         """if a data_string and a label is passed will initialize
         the data object"""
         self.initialized = False
-        if data_string != "" and label != "":
+        self.label = None
+        self.array = None
+        if label == None:
+            return
+        if data_string is not None and data is not None:
+            print(
+                "[WARNING] cannot initalize a Data object from a string and an"
+                " array"
+            )
+        elif data_string != None:
             self.from_str(data_string, label)
+        elif data is not None:
+            self.from_array(data, label)
 
     def get_array(self, strings: list) -> np.array:
         """takes a list of strings and outputs an np.array of floats"""
@@ -37,6 +56,11 @@ class Data:
         """takes a line from the data input file and the
         corresponding integer label and updates the initialization state"""
         self.array = self.get_array(list(filter(None, string.split(" "))))
+        self.label = label
+        self.initialized = True
+
+    def from_array(self, data: np.array, label: int) -> None:
+        self.array = np.array(data)
         self.label = label
         self.initialized = True
 
@@ -146,15 +170,53 @@ class DataSet:
 
 
 class Neuron:
-    def __init__(self, inputs=0) -> None:
+    def __init__(self, number_weights=0) -> None:
         self.weights = None
+        self.bias = None
         self.initialized = False
-        if inputs != 0:
-            self.init(inputs)
+        if number_weights != 0:
+            self.init(number_weights)
 
-    def init(self, inputs: int) -> None:
-        self.weights = np.array([random() for i in range(inputs + 1)])
+    def init(self, number_weights: int) -> None:
+        """"""
+        self.weights = np.array([random() for i in range(number_weights)])
+        self.bias = random()
         self.initialized = True
+
+    def front_propagate(self, data: Data) -> float:
+        return self.sigmoid(self.activation(data))
+
+    def back_propagate(self, next_neuron) -> float:
+        pass
+
+    def cost(self, data: Data) -> float:
+        """calculates the square error"""
+        error = self.sigmoid(self.activation(data)) - data.label
+        return error * error
+
+    def activation(self, data: Data) -> float:
+        if len(data.array) != len(self.weights):
+            print(
+                "[WARNING] differing lengths arrays when calculating"
+                " activation functions"
+            )
+            return self.bias
+        return self.bias + np.dot(data.array, self.weights)
+
+    def sigmoid(self, real: float) -> float:
+        return tanh(real / 2)
+
+    def sigmoid_prime(self, real: float) -> float:
+        """derivative of sigmoid function"""
+        # sigmoid = tanh(real/2)
+        # tanh(x)' = ((cosh(x))^2 - (sinh(x))^2) / (cosh(x))^2
+        real = real / 2
+        s = sinh(real)
+        c = cosh(real)
+        s = s * s
+        c = c * c
+        # divide by 2 for chain rule
+        return (c - s) / (2 * c)
 
     def __getitem__(self, key: int) -> float:
         return self.weights[key]
@@ -167,15 +229,32 @@ class Neuron:
 
 
 class Layer:
-    def __init__(self, neurons=0, weights=0) -> None:
+    def __init__(
+        self,
+        number_neurons=0,
+        number_weights=0,
+    ) -> None:
         self.neurons = None
         self.initialized = False
-        if neurons != 0 and weights != 0:
-            self.init(neurons)
+        if number_neurons != 0 and number_weights != 0:
+            self.init(number_neurons, number_weights)
 
-    def init(self, neurons: int, weights: int) -> None:
-        self.neurons = [Neuron(weights) for i in range(neurons)]
+    def init(
+        self,
+        number_neurons: int,
+        number_weights: int,
+    ) -> None:
+        self.neurons = [Neuron(number_weights) for i in range(number_neurons)]
         self.initialized = True
+
+    def front_propagation(self, data: Data) -> Data:
+        new_data = Data()
+        new_data.label = data.label
+        new_data.array = np.zeros(len(self.neurons))
+        for i in range(len(new_data.array)):
+            new_data.array[i] = self.neurons[i].front_propagate(data)
+        new_data.initialized = True
+        return new_data
 
     def __getitem__(self, key: int) -> Neuron:
         return self.neurons[key]
@@ -188,55 +267,65 @@ class Layer:
 
 
 class Network:
-    def __init__(self) -> None:
-        self.layers = None
+    def __init__(
+        self,
+        number_hidden_layers=0,
+        number_output_neurons=0,
+        number_weights=0,
+    ) -> None:
+        self.hidden_layers = None
+        self.output_layer = None
+        self.initialized = False
+        if (
+            number_hidden_layers != 0
+            and number_output_neurons != 0
+            and number_weights != 0
+        ):
+            self.init(
+                number_hidden_layers,
+                number_output_neurons,
+                number_weights,
+            )
 
-    def parse_string(self, string: str) -> bool:
-        return True
+    def init(
+        self,
+        number_hidden_layers: int,
+        number_output_neurons: int,
+        number_weights: int,
+    ) -> None:
+        self.hidden_layers = [
+            Layer(number_weights, number_weights)
+            for i in range(number_hidden_layers)
+        ]
+        self.output_layer = Layer(number_output_neurons, number_weights)
+        self.initialized = True
 
-    def backpropagation(self) -> None:
+    def cost(self, dataset: DataSet) -> float:
+        cost = 0
+        for data in dataset.data_list:
+            output = self.front_propagation(data)
+            value = output.array[0] - output.label
+            cost += value * value
+        return cost / len(data_list.data_list)
+
+    def train(self, training_data: DataSet) -> None:
         pass
 
-    def __getitem__(self, key: int) -> Layer:
-        return self.layers[key]
+    def back_propagation(self) -> None:
+        pass
+
+    def front_propagation(self, data: Data) -> Data:
+        previous_layer = data
+        for layer in self.hidden_layers:
+            previous_layer = layer.front_propagation(previous_layer)
+        return self.output_layer.front_propagation(previous_layer)
 
     def __str__(self) -> str:
         string = ""
-        for layer in self.layers:
-            string += f"{layer} "
+        for layer in self.hidden_layers:
+            string += f"{layer}\n"
+        string += f"{self.output_layer}\n"
         return string
-
-
-def initializeNetwork(ninputs, nhidden, noutputs):
-    network = list()
-    # list of numpy arrays holding the wieghts for each neuron in the hidden layer
-    hidden_layer = [
-        np.array([random() for i in range(ninputs + 1)])
-        for i in range(nhidden)
-    ]
-    network.append(hidden_layer)
-    # list of numpy arrays holding the weights for the neuron in the output layer
-    output_layer = [
-        np.array([random() for i in range(nhidden + 1)])
-        for i in range(noutputs)
-    ]
-    network.append(output_layer)
-    return network
-
-
-def gradientDescent(W, inputs):
-    z = 0
-    for i in range(len(W)):
-        print(np.dot(W[i], inputs[i].array))
-        z += np.dot(W[i], inputs[i].array)
-    # print(z)
-    gradient = (1 - math.tanh(z)) * np.array(inputs[0])
-    print(gradient)
-
-    w = 0
-    while gradient != 0:
-        w = w - gradient
-    return w
 
 
 def get_data(input_data_file_path: str, input_label_file_path: str) -> DataSet:
@@ -262,15 +351,18 @@ if __name__ == "__main__":
         input_data_file_path = sys.argv[1]
         input_label_file_path = sys.argv[2]
 
+    seed(1)
+
     data_list = get_data(input_data_file_path, input_label_file_path)
 
-    seed(1)
-    # initializing a network with 100 inputs, 50 nodes in the hidden layer, and 1 neuron in the output layer
-    network = initializeNetwork(100, 50, 1)
-    hidden_layer = network[0]  # list of nparray weights for each neuron
-    output_layer = network[1]  # list of nparray weights for output neuron
+    if len(data_list.data_list) == 0:
+        print("[ERROR] no data")
+        sys.exit()
 
-    single_neuron = hidden_layer[0]
-    # print(single_neuron)
-    w = gradientDescent(single_neuron, data_list)
-    # print(w)
+    network = Network(
+        number_hidden_layers=NUMBER_OF_HIDDEN_LAYERS,
+        number_output_neurons=NUMBER_OF_OUTPUTS,
+        number_weights=len(data_list[0].array),
+    )
+    network.train(data_list)
+    print(network.cost(data_list))
