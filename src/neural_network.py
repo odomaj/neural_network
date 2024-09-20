@@ -9,7 +9,7 @@ DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
 DEFAULT_LABEL_INPUT_PATH = "../data/second_test/a2-test-label.txt"
 INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
 
-NUMBER_OF_HIDDEN_LAYERS = 1
+HIDDEN_LAYER_STRUCTURE = [128, 16]
 NUMBER_OF_OUTPUTS = 1
 
 
@@ -289,14 +289,19 @@ class Network:
 
     def init(
         self,
-        number_hidden_layers: int,
+        hidden_layers: list,
         number_output_neurons: int,
         number_weights: int,
     ) -> None:
-        self.hidden_layers = [
-            Layer(number_weights, number_weights)
-            for i in range(number_hidden_layers)
-        ]
+        self.hidden_layers = []
+        for hidden_layer in hidden_layers:
+            self.hidden_layers.append(
+                Layer(
+                    number_neurons=hidden_layer,
+                    number_weights=number_weights,
+                )
+            )
+            number_weights = hidden_layer
         self.output_layer = Layer(number_output_neurons, number_weights)
         self.initialized = True
 
@@ -311,7 +316,7 @@ class Network:
     def train(self, training_data: DataSet) -> None:
         pass
 
-    def back_propagation(self) -> None:
+    def back_propagation(self, dataset: DataSet) -> None:
         pass
 
     def front_propagation(self, data: Data) -> Data:
@@ -360,7 +365,7 @@ if __name__ == "__main__":
         sys.exit()
 
     network = Network(
-        number_hidden_layers=NUMBER_OF_HIDDEN_LAYERS,
+        number_hidden_layers=HIDDEN_LAYER_STRUCTURE,
         number_output_neurons=NUMBER_OF_OUTPUTS,
         number_weights=len(data_list[0].array),
     )
