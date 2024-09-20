@@ -203,6 +203,32 @@ class Neuron:
             return self.bias
         return self.bias + np.dot(data.array, self.weights)
 
+    def delta_bias(self, data: Data) -> float:
+        activation_result = self.activation(data)
+        return (
+            2
+            * (activation_result - data.label)
+            * self.sigmoid_prime(activation_result)
+        )
+
+    def delta_weight(self, data: Data) -> np.array:
+        activation_result = self.activation(data)
+        delta_weight = (
+            2
+            * (activation_result - data.label)
+            * self.sigmoid_prime(activation_result)
+        )
+        return np.multiply(self.weights, delta_weight)
+
+    def delta_cost(self, data: Data, previous_activation: float) -> float:
+        activation_result = self.activation(data)
+        return (
+            2
+            * (activation_result - data.label)
+            * self.sigmoid_prime(activation_result)
+            * previous_activation
+        )
+
     def sigmoid(self, real: float) -> float:
         return tanh(real / 2)
 
@@ -294,6 +320,8 @@ class Network:
         number_weights: int,
     ) -> None:
         self.hidden_layers = []
+        # number of neurons in the previous layer determines the number
+        # of weights in the current layer
         for hidden_layer in hidden_layers:
             self.hidden_layers.append(
                 Layer(
