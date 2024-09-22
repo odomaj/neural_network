@@ -4,6 +4,7 @@ import sys
 from math import tanh, sinh, cosh
 from random import seed, random
 
+# https://brilliant.org/wiki/backpropagation/#:~:text=%E2%88%82ajk%E2%80%8B,1%20%CE%B4%20l%20k%20%2B%201%20.
 
 DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
 DEFAULT_LABEL_INPUT_PATH = "../data/second_test/a2-test-label.txt"
@@ -11,10 +12,6 @@ INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
 
 HIDDEN_LAYER_STRUCTURE = [128, 16]
 NUMBER_OF_OUTPUTS = 1
-
-
-def normal_distribution_error(distribution: np.array) -> float:
-    return np.mean(distribution)
 
 
 class Data:
@@ -169,6 +166,20 @@ class DataSet:
         return output
 
 
+class WeightAdjustments:
+    def __init__(
+        self,
+        output_weights=None,
+        output_bias=None,
+        hidden_weights=None,
+        hidden_bias=None,
+    ):
+        self.output_weights = output_weights
+        self.output_bias = output_bias
+        self.hidden_weights = hidden_weights
+        self.hidden_bias = hidden_bias
+
+
 class Neuron:
     def __init__(self, number_weights=0) -> None:
         self.weights = None
@@ -183,12 +194,20 @@ class Neuron:
         self.bias = random()
         self.initialized = True
 
+    # to be removed
     def front_propagate(self, data: Data) -> float:
         return self.sigmoid(self.activation(data))
 
     def back_propagate(self, next_neuron) -> float:
         pass
 
+    def adjust_weights(self, gradiant: np.array) -> None:
+        self.weights = np.subtract(self.weights, gradiant)
+
+    def adjust_bias(self, gradiant: float) -> None:
+        self.bias -= gradiant
+
+    # to be removed
     def cost(self, data: Data) -> float:
         """calculates the square error"""
         error = self.sigmoid(self.activation(data)) - data.label
@@ -197,12 +216,23 @@ class Neuron:
     def activation(self, data: Data) -> float:
         if len(data.array) != len(self.weights):
             print(
-                "[WARNING] differing lengths arrays when calculating"
-                " activation functions"
+                "[WARNING] Neuron.activation ran with"
+                f" {len(self.weights)} weights and {len(data.array)} data"
+                " values"
             )
             return self.bias
         return self.bias + np.dot(data.array, self.weights)
 
+    # to be removed
+    def delta_cost_constant(self, data: Data) -> float:
+        activation_result = self.activation(data)
+        return (
+            2
+            * (activation_result - data.label)
+            * self.sigmoid_prime(activation_result)
+        )
+
+    # to be removed
     def delta_bias(self, data: Data) -> float:
         activation_result = self.activation(data)
         return (
@@ -211,6 +241,7 @@ class Neuron:
             * self.sigmoid_prime(activation_result)
         )
 
+    # to be removed
     def delta_weight(self, data: Data) -> np.array:
         activation_result = self.activation(data)
         delta_weight = (
@@ -220,6 +251,7 @@ class Neuron:
         )
         return np.multiply(self.weights, delta_weight)
 
+    # to be removed
     def delta_cost(self, data: Data, previous_activation: float) -> float:
         activation_result = self.activation(data)
         return (
@@ -237,12 +269,18 @@ class Neuron:
         # sigmoid = tanh(real/2)
         # tanh(x)' = ((cosh(x))^2 - (sinh(x))^2) / (cosh(x))^2
         real = real / 2
-        s = sinh(real)
-        c = cosh(real)
-        s = s * s
-        c = c * c
-        # divide by 2 for chain rule
-        return (c - s) / (2 * c)
+        try:
+            s = sinh(real)
+            c = cosh(real)
+            s = s * s
+            c = c * c
+            # divide by 2 for chain rule
+            output = (c - s) / (2 * c)
+            if np.isnan(output):
+                return 0
+            return output
+        except:
+            return 0
 
     def __getitem__(self, key: int) -> float:
         return self.weights[key]
@@ -273,6 +311,15 @@ class Layer:
         self.neurons = [Neuron(number_weights) for i in range(number_neurons)]
         self.initialized = True
 
+    def activation(self, data: Data) -> Data:
+        new_data = Data()
+        new_data.label = data.label
+        new_data.array = np.zeros(len(self.neurons))
+        for i in range(len(new_data.array)):
+            new_data.array[i] = self.neurons[i].activation(data)
+        new_data.initialized = True
+        return new_data
+
     def front_propagation(self, data: Data) -> Data:
         new_data = Data()
         new_data.label = data.label
@@ -281,6 +328,79 @@ class Layer:
             new_data.array[i] = self.neurons[i].front_propagate(data)
         new_data.initialized = True
         return new_data
+
+    def back_propagation(
+        self,
+        subsequent_activations: np.array,
+        delta_cost_constant: float,
+    ) -> None:
+        for neuron in self.neurons:
+            neuron.adjust_weights(
+                np.multiply(subsequent_activations, delta_cost_constant)
+            )
+            neuron.adjust_bias(delta_cost_constant)
+
+    def get_all_activations(self, data: Data) -> np.array:
+        activations = np.zeros(len(self.neurons))
+        for i in range(len(self.neurons)):
+            activations[i] = self.neurons[i].activation(data)
+        return activations
+
+    def get_all_sigmoids(self, data: Data) -> np.array:
+        sigmoids = np.zeros(len(self.neurons))
+        for i in range(len(self.neurons)):
+            sigmoids[i] = self.neurons[i].sigmoid(
+                self.neurons[i].activation(data)
+            )
+        return sigmoids
+
+    def get_all_sigmoid_primes(self, data: Data) -> np.array:
+        sigmoid_primes = np.zeros(len(self.neurons))
+        for i in range(len(self.neurons)):
+            sigmoid_primes[i] = self.neurons[i].sigmoid_prime(
+                self.neurons[i].activation(data)
+            )
+        return sigmoid_primes
+
+    def sum_error_terms(
+        self, error_terms: np.array, weight_index: int
+    ) -> float:
+        if len(error_terms) != len(self.neurons):
+            print(
+                "[ERROR] Layer.sum_error_terms called with"
+                f" {len(error_terms)} error terms given for"
+                f" {len(self.neurons)} neurons"
+            )
+            return
+        sum = 0
+        for i in range(len(error_terms)):
+            sum += error_terms[i] * self.neurons[i].weights[weight_index]
+        return sum
+
+    def adjust_neurons(
+        self,
+        weight_adjustments: list,
+        bias_adjustments: list,
+    ) -> None:
+        if not self.initialized:
+            return
+        if len(weight_adjustments) != len(self.neurons):
+            print(
+                "[ERROR] Layer.adjust_neurons called with"
+                f" {len(weight_adjustments)} weight_adjustments and"
+                f" {len(self.neurons)} neurons"
+            )
+            return
+        if len(bias_adjustments) != len(self.neurons):
+            print(
+                "[ERROR] Layer.adjust_neurons called with"
+                f" {len(bias_adjustments)} bias_adjustments and"
+                f" {len(self.neurons)} neurons"
+            )
+            return
+        for i in range(len(self.neurons)):
+            self.neurons[i].adjust_weights(weight_adjustments[i])
+            self.neurons[i].adjust_bias(bias_adjustments[i])
 
     def __getitem__(self, key: int) -> Neuron:
         return self.neurons[key]
@@ -341,13 +461,197 @@ class Network:
             cost += value * value
         return cost / len(data_list.data_list)
 
-    def train(self, training_data: DataSet) -> None:
-        pass
+    def average_training_results(self, gradiants: list) -> WeightAdjustments:
+        adjustments = WeightAdjustments(
+            output_weights=[],
+            output_bias=[],
+            hidden_weights=[],
+            hidden_bias=[],
+        )
+        if len(gradiants) < 1:
+            return None
+        for n in range(len(gradiants[0].output_weights)):
+            weights = np.zeros(len(gradiants[0].output_weights[n]))
+            for w in range(len(weights)):
+                sum = 0
+                for i in range(len(gradiants)):
+                    sum += gradiants[i].output_weights[n][w]
+                weights[w] = sum / len(gradiants)
+            adjustments.output_weights.append(weights)
 
-    def back_propagation(self, dataset: DataSet) -> None:
-        pass
+        for n in range(len(gradiants[0].output_bias)):
+            sum = 0
+            for i in range(len(gradiants)):
+                sum += gradiants[i].output_bias[n]
+            adjustments.output_bias.append(sum / len(gradiants))
+
+        for l in range(len(gradiants[0].hidden_weights)):
+            adjustments.hidden_weights.append([])
+            for n in range(len(gradiants[0].hidden_weights[l])):
+                weights = np.zeros(len(gradiants[0].hidden_weights[l][n]))
+                for w in range(len(weights)):
+                    sum = 0
+                    for i in range(len(gradiants)):
+                        sum += gradiants[i].hidden_weights[l][n][w]
+                    weights[w] = sum / len(gradiants)
+                adjustments.hidden_weights[l].append(weights)
+
+        for l in range(len(gradiants[0].hidden_bias)):
+            adjustments.hidden_bias.append([])
+            for n in range(len(gradiants[0].hidden_bias[l])):
+                sum = 0
+                for i in range(len(gradiants)):
+                    sum += gradiants[i].hidden_bias[l][n]
+                adjustments.hidden_bias[l].append(sum / len(gradiants))
+
+        return adjustments
+
+    def train(self, training_data: DataSet) -> None:
+        if len(training_data.data_list) == 0:
+            return
+        gradiants = []
+        for data in training_data.data_list:
+            gradiants.append(self.back_propagation(data))
+        self.adjust_weights(self.average_training_results(gradiants))
+
+    def adjust_weights(self, weight_adjustments: WeightAdjustments) -> None:
+        if len(weight_adjustments.hidden_weights) != len(self.hidden_layers):
+            print(
+                "[ERROR] Network.adjust_weights called with"
+                f" {len(weight_adjustments.hidden_weights)} hidden weights"
+                f" vectors and {len(self.hidden_layers)} layers"
+            )
+            return
+        if len(weight_adjustments.hidden_bias) != len(self.hidden_layers):
+            print(
+                "[ERROR] Network.adjust_weights called with"
+                f" {len(weight_adjustments.hidden_bias)} hidden biases"
+                f" vectors and {len(self.hidden_layers)} layers"
+            )
+            return
+        self.output_layer.adjust_neurons(
+            weight_adjustments.output_weights, weight_adjustments.output_bias
+        )
+        for i in range(len(self.hidden_layers)):
+            self.hidden_layers[i].adjust_neurons(
+                weight_adjustments.hidden_weights[i],
+                weight_adjustments.hidden_bias[i],
+            )
+
+    def get_layer_error_terms(
+        self,
+        layer: Layer,
+        subsequent_layer: Layer,
+        data: Data,
+        error_terms: np.array,
+    ) -> np.array:
+        """"""
+        sigmoid_primes = layer.get_all_sigmoid_primes(data)
+        new_error_terms = np.zeros(len(layer.neurons))
+        for weight_index in range(len(error_terms)):
+            new_error_terms[weight_index] = subsequent_layer.sum_error_terms(
+                error_terms, weight_index
+            )
+            new_error_terms[weight_index] *= sigmoid_primes[weight_index]
+        return new_error_terms
+
+    def get_layer_weight_adjustments(
+        self,
+        previous_layer_output: np.array,
+        error_terms: np.array,
+    ):
+        """"""
+        weight_adjustments = [
+            np.zeros(len(previous_layer_output))
+            for i in range(len(error_terms))
+        ]
+        for i in range(len(error_terms)):
+            for j in range(len(previous_layer_output)):
+                weight_adjustments[i][j] = (
+                    error_terms[i] * previous_layer_output[j]
+                )
+        return weight_adjustments
+
+    def back_propagation(self, data: Data) -> WeightAdjustments:
+        if not self.initialized:
+            return None
+        weight_adjustments = WeightAdjustments()
+        # generate a list of all the data outputs for each layer
+        previous_layers = [data]
+        for layer in self.hidden_layers:
+            previous_layers.append(
+                layer.front_propagation(previous_layers[-1])
+            )
+        current_network_output = self.output_layer.front_propagation(
+            previous_layers[-1]
+        )
+        # calculate scalar multiplied for delta_weight for the output layer
+        error_terms = np.array(
+            [
+                2
+                * (
+                    current_network_output.array[0]
+                    - current_network_output.label
+                )
+                * self.output_layer.neurons[0].sigmoid_prime(
+                    self.output_layer.neurons[0].activation(
+                        previous_layers[-1]
+                    )
+                )
+            ]
+        )
+        # multiply that constant across all the
+        # sigmoids of the last hidden layer
+        weight_adjustments.output_weights = [
+            np.multiply(
+                self.hidden_layers[-1].get_all_sigmoids(previous_layers[-2]),
+                error_terms[0],
+            )
+        ]
+        weight_adjustments.output_bias = error_terms
+        weight_adjustments.hidden_weights = []
+        weight_adjustments.hidden_bias = []
+        # for every layer calculate the error terms
+        # then multiply the error terms by the previous layers outputs
+
+        # calculate the error terms for the last hidden layer
+        error_terms = self.get_layer_error_terms(
+            self.hidden_layers[-1],
+            self.output_layer,
+            previous_layers[-2],
+            error_terms,
+        )
+        for i in range(len(self.hidden_layers) - 1, 0, -1):
+            weight_adjustments.hidden_weights.insert(
+                0,
+                self.get_layer_weight_adjustments(
+                    previous_layers[i].array, error_terms
+                ),
+            )
+            weight_adjustments.hidden_bias.insert(0, error_terms)
+            error_terms = self.get_layer_error_terms(
+                self.hidden_layers[i - 1],
+                self.hidden_layers[i],
+                previous_layers[i - 1],
+                error_terms,
+            )
+        weight_adjustments.hidden_weights.insert(
+            0,
+            self.get_layer_weight_adjustments(
+                previous_layers[0].array, error_terms
+            ),
+        )
+        weight_adjustments.hidden_bias.insert(0, error_terms)
+
+        return weight_adjustments
 
     def front_propagation(self, data: Data) -> Data:
+        if not self.initialized:
+            print(
+                "[WARNING] Network.front_propagation ran with Network object"
+                " not initialized"
+            )
+            return
         previous_layer = data
         for layer in self.hidden_layers:
             previous_layer = layer.front_propagation(previous_layer)
@@ -397,5 +701,18 @@ if __name__ == "__main__":
         number_output_neurons=NUMBER_OF_OUTPUTS,
         number_weights=len(data_list[0].array),
     )
-    network.train(data_list)
-    print(network.cost(data_list))
+
+    test = DataSet()
+    test.data_list = data_list.data_list[:1]
+    test.initialized = True
+
+    previous_cost = network.cost(test)
+    for i in range(100):
+        network.train(test)
+        new_cost = network.cost(test)
+        if new_cost > previous_cost:
+            print(
+                f"youre stupid it broke after {i+1} training runs"
+                f" {previous_cost} < {new_cost}"
+            )
+        previous_cost = new_cost
