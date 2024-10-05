@@ -4,8 +4,6 @@ import sys
 from math import tanh, sinh, cosh
 from random import seed, random
 
-# https://brilliant.org/wiki/backpropagation/#:~:text=%E2%88%82ajk%E2%80%8B,1%20%CE%B4%20l%20k%20%2B%201%20.
-
 DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
 DEFAULT_LABEL_INPUT_PATH = "../data/second_test/a2-test-label.txt"
 INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
@@ -452,7 +450,27 @@ class Network:
 
         return adjustments
 
-    def train(self, training_data: DataSet, learning_rate: float) -> None:
+    def train(
+        self, training_data: DataSet, epoch: int, learning_rate: float
+    ) -> None:
+        previous_cost = self.cost(training_data)
+        min_cost = previous_cost
+        print(f"[INFO] training with an initial cost of {previous_cost}")
+
+        i = 0
+        while previous_cost > min_cost or i < epoch:
+            i += 1
+            self.train_set(training_data, learning_rate)
+            new_cost = self.cost(training_data)
+            print(
+                "[INFO] trained on data set with a delta cost of "
+                f" {previous_cost - new_cost}, new cost is {new_cost} after"
+                f" {i} training runs"
+            )
+            previous_cost = new_cost
+            min_cost = min(min_cost, previous_cost)
+
+    def train_set(self, training_data: DataSet, learning_rate: float) -> None:
         if len(training_data.data_list) == 0:
             return
         gradiants = []
@@ -659,14 +677,4 @@ if __name__ == "__main__":
     test.data_list = data_list.data_list[:2]
     test.initialized = True
 
-    previous_cost = network.cost(test)
-    for i in range(100):
-        network.train(test, 1)
-        new_cost = network.cost(test)
-        print(new_cost)
-        if new_cost > previous_cost:
-            print(
-                f"youre stupid it broke after {i+1} training runs"
-                f" {previous_cost} < {new_cost}"
-            )
-        previous_cost = new_cost
+    network.train(data_list, 50, 5)
