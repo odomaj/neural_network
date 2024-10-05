@@ -1,15 +1,20 @@
 from get_file import get_file
 import numpy as np
 import sys
+from argparse import ArgumentParser
 from math import tanh, sinh, cosh
 from random import seed, random
 
-DEFAULT_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
-DEFAULT_LABEL_INPUT_PATH = "../data/second_test/a2-test-label.txt"
-INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
+DEFAULT_TRAINING_DATA_INPUT_PATH = "../data/first_test/a2-train-data.txt"
+DEFAULT_TRAINING_DATA_LABEL_PATH = "../data/first_test/a2-train-label.txt"
+
+DEFAULT_TEST_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
+DEFAULT_TEST_DATA_LABEL_PATH = "../data/second_test/a2-test-label.txt"
 
 HIDDEN_LAYER_STRUCTURE = [128, 16]
 NUMBER_OF_OUTPUTS = 1
+
+INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
 
 
 class Data:
@@ -44,7 +49,8 @@ class Data:
         """takes a list of strings and outputs an np.array of floats"""
         floats = []
         for string in strings:
-            floats.append(float(string))
+            if string != "\n":
+                floats.append(float(string))
         return np.array(floats)
 
     def from_str(self, string: str, label: int) -> None:
@@ -653,28 +659,45 @@ def get_data(input_data_file_path: str, input_label_file_path: str) -> DataSet:
 
 
 if __name__ == "__main__":
-    input_data_file_path = DEFAULT_DATA_INPUT_PATH
-    input_label_file_path = DEFAULT_LABEL_INPUT_PATH
-    if len(sys.argv) >= 3:
-        input_data_file_path = sys.argv[1]
-        input_label_file_path = sys.argv[2]
+    arg_parser = ArgumentParser()
+    arg_parser.add_argument(
+        "--train_data",
+        default=DEFAULT_TRAINING_DATA_INPUT_PATH,
+        help="path to training data file",
+    )
+    arg_parser.add_argument(
+        "--train_label",
+        default=DEFAULT_TRAINING_DATA_LABEL_PATH,
+        help="path to training data label file",
+    )
+    arg_parser.add_argument(
+        "--test_data",
+        default=DEFAULT_TEST_DATA_INPUT_PATH,
+        help="path to test data file",
+    )
+    arg_parser.add_argument(
+        "--test_label",
+        default=DEFAULT_TEST_DATA_LABEL_PATH,
+        help="path to test data label file",
+    )
+    args = vars(arg_parser.parse_args())
 
     seed(1)
 
-    data_list = get_data(input_data_file_path, input_label_file_path)
+    training_data = get_data(args["train_data"], args["train_label"])
+    test_data = get_data(args["test_data"], args["test_label"])
 
-    if len(data_list.data_list) == 0:
+    if len(training_data.data_list) == 0 or len(test_data.data_list) == 0:
         print("[ERROR] no data")
         sys.exit()
 
     network = Network(
         number_hidden_layers=HIDDEN_LAYER_STRUCTURE,
         number_output_neurons=NUMBER_OF_OUTPUTS,
-        number_weights=len(data_list[0].array),
+        number_weights=len(training_data[0].array),
     )
 
-    test = DataSet()
-    test.data_list = data_list.data_list[:2]
-    test.initialized = True
+    network.train(training_data, 50, 5)
 
-    network.train(data_list, 50, 5)
+    test_cost = network.cost(test_data)
+    print(test_cost)
