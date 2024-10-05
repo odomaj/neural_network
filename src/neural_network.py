@@ -194,24 +194,14 @@ class Neuron:
         self.bias = random()
         self.initialized = True
 
-    # to be removed
-    def front_propagate(self, data: Data) -> float:
+    def front_propagation(self, data: Data) -> float:
         return self.sigmoid(self.activation(data))
-
-    def back_propagate(self, next_neuron) -> float:
-        pass
 
     def adjust_weights(self, gradiant: np.array) -> None:
         self.weights = np.subtract(self.weights, gradiant)
 
     def adjust_bias(self, gradiant: float) -> None:
         self.bias -= gradiant
-
-    # to be removed
-    def cost(self, data: Data) -> float:
-        """calculates the square error"""
-        error = self.sigmoid(self.activation(data)) - data.label
-        return error * error
 
     def activation(self, data: Data) -> float:
         if len(data.array) != len(self.weights):
@@ -222,44 +212,6 @@ class Neuron:
             )
             return self.bias
         return self.bias + np.dot(data.array, self.weights)
-
-    # to be removed
-    def delta_cost_constant(self, data: Data) -> float:
-        activation_result = self.activation(data)
-        return (
-            2
-            * (activation_result - data.label)
-            * self.sigmoid_prime(activation_result)
-        )
-
-    # to be removed
-    def delta_bias(self, data: Data) -> float:
-        activation_result = self.activation(data)
-        return (
-            2
-            * (activation_result - data.label)
-            * self.sigmoid_prime(activation_result)
-        )
-
-    # to be removed
-    def delta_weight(self, data: Data) -> np.array:
-        activation_result = self.activation(data)
-        delta_weight = (
-            2
-            * (activation_result - data.label)
-            * self.sigmoid_prime(activation_result)
-        )
-        return np.multiply(self.weights, delta_weight)
-
-    # to be removed
-    def delta_cost(self, data: Data, previous_activation: float) -> float:
-        activation_result = self.activation(data)
-        return (
-            2
-            * (activation_result - data.label)
-            * self.sigmoid_prime(activation_result)
-            * previous_activation
-        )
 
     def sigmoid(self, real: float) -> float:
         return tanh(real / 2)
@@ -325,20 +277,9 @@ class Layer:
         new_data.label = data.label
         new_data.array = np.zeros(len(self.neurons))
         for i in range(len(new_data.array)):
-            new_data.array[i] = self.neurons[i].front_propagate(data)
+            new_data.array[i] = self.neurons[i].front_propagation(data)
         new_data.initialized = True
         return new_data
-
-    def back_propagation(
-        self,
-        subsequent_activations: np.array,
-        delta_cost_constant: float,
-    ) -> None:
-        for neuron in self.neurons:
-            neuron.adjust_weights(
-                np.multiply(subsequent_activations, delta_cost_constant)
-            )
-            neuron.adjust_bias(delta_cost_constant)
 
     def get_all_activations(self, data: Data) -> np.array:
         activations = np.zeros(len(self.neurons))
