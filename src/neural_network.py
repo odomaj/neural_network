@@ -197,11 +197,13 @@ class Neuron:
     def front_propagation(self, data: Data) -> float:
         return self.sigmoid(self.activation(data))
 
-    def adjust_weights(self, gradiant: np.array) -> None:
-        self.weights = np.subtract(self.weights, gradiant)
+    def adjust_weights(self, gradiant: np.array, learning_rate: float) -> None:
+        self.weights = np.subtract(
+            self.weights, np.multiply(gradiant, learning_rate)
+        )
 
-    def adjust_bias(self, gradiant: float) -> None:
-        self.bias -= gradiant
+    def adjust_bias(self, gradiant: float, learning_rate: float) -> None:
+        self.bias -= gradiant * learning_rate
 
     def activation(self, data: Data) -> float:
         if len(data.array) != len(self.weights):
@@ -322,6 +324,7 @@ class Layer:
         self,
         weight_adjustments: list,
         bias_adjustments: list,
+        learning_rate: float,
     ) -> None:
         if not self.initialized:
             return
@@ -340,8 +343,10 @@ class Layer:
             )
             return
         for i in range(len(self.neurons)):
-            self.neurons[i].adjust_weights(weight_adjustments[i])
-            self.neurons[i].adjust_bias(bias_adjustments[i])
+            self.neurons[i].adjust_weights(
+                weight_adjustments[i], learning_rate
+            )
+            self.neurons[i].adjust_bias(bias_adjustments[i], learning_rate)
 
     def __getitem__(self, key: int) -> Neuron:
         return self.neurons[key]
@@ -400,7 +405,7 @@ class Network:
             output = self.front_propagation(data)
             value = output.array[0] - output.label
             cost += value * value
-        return cost / len(data_list.data_list)
+        return cost / len(dataset.data_list)
 
     def average_training_results(self, gradiants: list) -> WeightAdjustments:
         adjustments = WeightAdjustments(
@@ -447,15 +452,19 @@ class Network:
 
         return adjustments
 
-    def train(self, training_data: DataSet) -> None:
+    def train(self, training_data: DataSet, learning_rate: float) -> None:
         if len(training_data.data_list) == 0:
             return
         gradiants = []
         for data in training_data.data_list:
             gradiants.append(self.back_propagation(data))
-        self.adjust_weights(self.average_training_results(gradiants))
+        self.adjust_weights(
+            self.average_training_results(gradiants), learning_rate
+        )
 
-    def adjust_weights(self, weight_adjustments: WeightAdjustments) -> None:
+    def adjust_weights(
+        self, weight_adjustments: WeightAdjustments, learning_rate: float
+    ) -> None:
         if len(weight_adjustments.hidden_weights) != len(self.hidden_layers):
             print(
                 "[ERROR] Network.adjust_weights called with"
@@ -471,12 +480,15 @@ class Network:
             )
             return
         self.output_layer.adjust_neurons(
-            weight_adjustments.output_weights, weight_adjustments.output_bias
+            weight_adjustments.output_weights,
+            weight_adjustments.output_bias,
+            learning_rate,
         )
         for i in range(len(self.hidden_layers)):
             self.hidden_layers[i].adjust_neurons(
                 weight_adjustments.hidden_weights[i],
                 weight_adjustments.hidden_bias[i],
+                learning_rate,
             )
 
     def get_layer_error_terms(
@@ -644,13 +656,14 @@ if __name__ == "__main__":
     )
 
     test = DataSet()
-    test.data_list = data_list.data_list[:1]
+    test.data_list = data_list.data_list[:2]
     test.initialized = True
 
     previous_cost = network.cost(test)
     for i in range(100):
-        network.train(test)
+        network.train(test, 1)
         new_cost = network.cost(test)
+        print(new_cost)
         if new_cost > previous_cost:
             print(
                 f"youre stupid it broke after {i+1} training runs"
