@@ -457,16 +457,32 @@ class Network:
         return adjustments
 
     def train(
-        self, training_data: DataSet, epoch: int, learning_rate: float
+        self,
+        training_data: DataSet,
+        epoch: int,
+        learning_rate: float,
+        batch_size=0,
     ) -> None:
         previous_cost = self.cost(training_data)
         min_cost = previous_cost
         print(f"[INFO] training with an initial cost of {previous_cost}")
 
+        if batch_size == 0:
+            batch_size = len(training_data.data_list)
+        number_of_batches = len(training_data.data_list) // batch_size
+        if number_of_batches * batch_size < len(training_data.data_list):
+            number_of_batches += 1
         i = 0
         while previous_cost > min_cost or i < epoch:
             i += 1
-            self.train_set(training_data, learning_rate)
+            for j in range(number_of_batches):
+                self.train_set(
+                    training_data,
+                    learning_rate,
+                    j * batch_size,
+                    (j + 1) * batch_size,
+                )
+                print(self.cost(training_data))
             new_cost = self.cost(training_data)
             print(
                 "[INFO] trained on data set with a delta cost of "
@@ -476,11 +492,19 @@ class Network:
             previous_cost = new_cost
             min_cost = min(min_cost, previous_cost)
 
-    def train_set(self, training_data: DataSet, learning_rate: float) -> None:
+    def train_set(
+        self,
+        training_data: DataSet,
+        learning_rate: float,
+        start_index: int,
+        end_index: int,
+    ) -> None:
         if len(training_data.data_list) == 0:
             return
         gradiants = []
-        for data in training_data.data_list:
+        if len(training_data.data_list) < end_index + 1:
+            end_index = len(training_data.data_list) + 1
+        for data in training_data.data_list[start_index:end_index]:
             gradiants.append(self.back_propagation(data))
         self.adjust_weights(
             self.average_training_results(gradiants), learning_rate
@@ -592,6 +616,7 @@ class Network:
         # then multiply the error terms by the previous layers outputs
 
         # calculate the error terms for the last hidden layer
+        # error term = current_layers_sigmoid_prime(previous_layers_output) * subsequent_layers_weight * subsequent_layers_error
         error_terms = self.get_layer_error_terms(
             self.hidden_layers[-1],
             self.output_layer,
@@ -697,7 +722,7 @@ if __name__ == "__main__":
         number_weights=len(training_data[0].array),
     )
 
-    network.train(training_data, 50, 5)
+    network.train(training_data, 50, 1, batch_size=10)
 
     test_cost = network.cost(test_data)
     print(test_cost)
