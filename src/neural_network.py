@@ -692,6 +692,16 @@ def dump_network(file_path: str, network: Network) -> None:
             file.write(f"{neuron}\n")
 
 
+def dump_output(file_path: str, network: Network, data_set: DataSet) -> None:
+    with get_file(file_path).open("w") as file:
+        for data in data_set.data_list:
+            output = network.front_propagation(data).array[0]
+            if output < 0:
+                file.write("-1 ")
+            else:
+                file.write("+1 ")
+
+
 if __name__ == "__main__":
     arg_parser = ArgumentParser()
     arg_parser.add_argument(
@@ -732,6 +742,7 @@ if __name__ == "__main__":
     )
 
     network.train(training_data, 50, 1, batch_size=50)
-    dump_network("../output.txt", network)
+    dump_network("../network.txt", network)
+    dump_output("../output.txt", network, test_data)
     test_cost = network.cost(test_data)
     print(test_cost)
