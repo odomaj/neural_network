@@ -11,7 +11,7 @@ DEFAULT_TRAINING_DATA_LABEL_PATH = "../data/first_test/a2-train-label.txt"
 DEFAULT_TEST_DATA_INPUT_PATH = "../data/second_test/a2-test-data.txt"
 DEFAULT_TEST_DATA_LABEL_PATH = "../data/second_test/a2-test-label.txt"
 
-HIDDEN_LAYER_STRUCTURE = [128, 16]
+HIDDEN_LAYER_STRUCTURE = [256]
 NUMBER_OF_OUTPUTS = 1
 
 INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
@@ -683,6 +683,15 @@ def get_data(input_data_file_path: str, input_label_file_path: str) -> DataSet:
     return DataSet(data, labels)
 
 
+def dump_network(file_path: str, network: Network) -> None:
+    hidden_units = len(network.hidden_layers[0].neurons)
+    with get_file(file_path).open("w") as file:
+        file.write(f"{hidden_units}\n")
+        file.write(f"{network.output_layer.neurons[0]}\n")
+        for neuron in network.hidden_layers[0].neurons:
+            file.write(f"{neuron}\n")
+
+
 if __name__ == "__main__":
     arg_parser = ArgumentParser()
     arg_parser.add_argument(
@@ -722,7 +731,7 @@ if __name__ == "__main__":
         number_weights=len(training_data[0].array),
     )
 
-    network.train(training_data, 50, 1, batch_size=10)
-
+    network.train(training_data, 50, 1, batch_size=50)
+    dump_network("../output.txt", network)
     test_cost = network.cost(test_data)
     print(test_cost)
