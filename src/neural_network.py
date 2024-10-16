@@ -741,7 +741,7 @@ if __name__ == "__main__":
         number_weights=len(training_data[0].array),
     )
 
-    network.train(training_data, 50, 1, batch_size=50)
+    network.train(training_data, 75, 2, batch_size=50)
     dump_network("../network.txt", network)
     dump_output("../output.txt", network, test_data)
     test_cost = network.cost(test_data)
