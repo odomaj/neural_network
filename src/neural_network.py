@@ -247,7 +247,7 @@ class Neuron:
         string = ""
         for weight in self.weights:
             string += f"{weight} "
-        return string
+        return string + f"{self.bias}"
 
 
 class Layer:
@@ -482,7 +482,10 @@ class Network:
                     j * batch_size,
                     (j + 1) * batch_size,
                 )
-                print(self.cost(training_data))
+                print(
+                    "[VERBOSE] trained batch new cost is"
+                    f" {self.cost(training_data)}"
+                )
             new_cost = self.cost(training_data)
             print(
                 "[INFO] trained on data set with a delta cost of "
@@ -702,6 +705,30 @@ def dump_output(file_path: str, network: Network, data_set: DataSet) -> None:
                 file.write("+1 ")
 
 
+def load_neuron(line: str) -> Neuron:
+    neuron = Neuron()
+    neuron_weights = Data().get_array(line.split(" "))
+    neuron.weights = np.array(neuron_weights)
+    neuron.bias = 0
+    neuron.initialized = True
+    return neuron
+
+
+def load_network(file_path: str) -> Network:
+    with get_file(file_path).open("r") as file:
+        network = Network()
+        network.hidden_layers = [Layer()]
+        network.hidden_layers[0].neurons = [None] * int(file.readline())
+        network.output_layer = Layer()
+        network.output_layer.neurons = [load_neuron(file.readline())]
+        for i in range(len(network.hidden_layers[0].neurons)):
+            network.hidden_layers[0].neurons[i] = load_neuron(file.readline())
+        network.output_layer.initialized = True
+        network.hidden_layers[0].initialized = True
+        network.initialized = True
+        return network
+
+
 if __name__ == "__main__":
     arg_parser = ArgumentParser()
     arg_parser.add_argument(
@@ -741,7 +768,14 @@ if __name__ == "__main__":
         number_weights=len(training_data[0].array),
     )
 
-    network.train(training_data, 75, 2, batch_size=50)
+    test = load_network("../network.txt")
+    # print(test.cost(training_data))
+    # print(test.cost(test_data))
+
+    network.train(training_data, 30, 4, batch_size=50)
+    network.train(training_data, 50, 2, batch_size=100)
+    network.train(training_data, 20, 1, batch_size=300)
+    network.train(training_data, 10, 0.5)
     dump_network("../network.txt", network)
     dump_output("../output.txt", network, test_data)
     test_cost = network.cost(test_data)
