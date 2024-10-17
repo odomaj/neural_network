@@ -4,6 +4,7 @@ import sys
 from argparse import ArgumentParser
 from math import tanh, sinh, cosh
 from random import seed, random
+from threading import Event
 
 DEFAULT_TRAINING_DATA_INPUT_PATH = "../data/first_test/a2-train-data.txt"
 DEFAULT_TRAINING_DATA_LABEL_PATH = "../data/first_test/a2-train-label.txt"
@@ -15,6 +16,9 @@ HIDDEN_LAYER_STRUCTURE = [256]
 NUMBER_OF_OUTPUTS = 1
 
 INTEGER_CHARS = {"1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-"}
+
+
+do_quit = Event()
 
 
 class Data:
@@ -312,6 +316,8 @@ class Layer:
     def sum_error_terms(
         self, error_terms: np.array, weight_index: int
     ) -> float:
+        """outputs the sum of the error_terms multiplied by the weight_index
+        weight in each neuron"""
         if len(error_terms) != len(self.neurons):
             print(
                 "[ERROR] Layer.sum_error_terms called with"
@@ -490,7 +496,7 @@ class Network:
             print(
                 "[INFO] trained on data set with a delta cost of "
                 f" {previous_cost - new_cost}, new cost is {new_cost} after"
-                f" {i} training runs"
+                f" {i} training runs with a learning rate of {learning_rate}"
             )
             previous_cost = new_cost
             min_cost = min(min_cost, previous_cost)
@@ -549,7 +555,10 @@ class Network:
         data: Data,
         error_terms: np.array,
     ) -> np.array:
-        """"""
+        """outputs a numpy array containing the error terms for each neuron in
+        the passed layer. Subsequent error term multiplied by the subsequent
+        layers weights (handled by Layer.sum_error_terms, then again multiplied
+        by this layers sigmoid primes"""
         sigmoid_primes = layer.get_all_sigmoid_primes(data)
         new_error_terms = np.zeros(len(layer.neurons))
         for weight_index in range(len(error_terms)):
@@ -564,7 +573,9 @@ class Network:
         previous_layer_output: np.array,
         error_terms: np.array,
     ):
-        """"""
+        """outputs a list of numpy array containing the weight adjustments for
+        each neuron in a layer. calculated by multiplying previous layer's output
+        with the current layer's error term"""
         weight_adjustments = [
             np.zeros(len(previous_layer_output))
             for i in range(len(error_terms))
@@ -708,8 +719,8 @@ def dump_output(file_path: str, network: Network, data_set: DataSet) -> None:
 def load_neuron(line: str) -> Neuron:
     neuron = Neuron()
     neuron_weights = Data().get_array(line.split(" "))
-    neuron.weights = np.array(neuron_weights)
-    neuron.bias = 0
+    neuron.weights = np.array(neuron_weights[:-1])
+    neuron.bias = neuron_weights[-1]
     neuron.initialized = True
     return neuron
 
@@ -729,7 +740,7 @@ def load_network(file_path: str) -> Network:
         return network
 
 
-if __name__ == "__main__":
+def initialize() -> tuple:
     arg_parser = ArgumentParser()
     arg_parser.add_argument(
         "--train_data",
@@ -751,32 +762,60 @@ if __name__ == "__main__":
         default=DEFAULT_TEST_DATA_LABEL_PATH,
         help="path to test data label file",
     )
-    args = vars(arg_parser.parse_args())
+    arg_parser.add_argument(
+        "--network_file", "-n", default="", help="network to load from save"
+    )
+    args = arg_parser.parse_args()
 
     seed(1)
 
-    training_data = get_data(args["train_data"], args["train_label"])
-    test_data = get_data(args["test_data"], args["test_label"])
+    training_data = get_data(args.train_data, args.train_label)
+    test_data = get_data(args.test_data, args.test_label)
 
     if len(training_data.data_list) == 0 or len(test_data.data_list) == 0:
         print("[ERROR] no data")
-        sys.exit()
+        return 1
 
-    network = Network(
-        number_hidden_layers=HIDDEN_LAYER_STRUCTURE,
-        number_output_neurons=NUMBER_OF_OUTPUTS,
-        number_weights=len(training_data[0].array),
-    )
+    if args.network_file == "":
+        network = Network(
+            number_hidden_layers=HIDDEN_LAYER_STRUCTURE,
+            number_output_neurons=NUMBER_OF_OUTPUTS,
+            number_weights=len(training_data[0].array),
+        )
+    else:
+        network = load_network(args.network_file)
+    return (training_data, test_data, network)
 
-    test = load_network("../network.txt")
-    # print(test.cost(training_data))
-    # print(test.cost(test_data))
 
-    network.train(training_data, 30, 4, batch_size=50)
-    network.train(training_data, 50, 2, batch_size=100)
-    network.train(training_data, 20, 1, batch_size=300)
-    network.train(training_data, 10, 0.5)
-    dump_network("../network.txt", network)
-    dump_output("../output.txt", network, test_data)
-    test_cost = network.cost(test_data)
-    print(test_cost)
+def update_saved(network: Network, data: DataSet, save_index: int) -> int:
+    filepath = f"../saves/network_save_{save_index}.txt"
+    if save_index == 0:
+        dump_network(filepath, network)
+        return 1
+    previous_filepath = f"../saves/network_save_{save_index-1}.txt"
+    previous_network = load_network(previous_filepath)
+    if network.cost(data) < previous_network.cost(data):
+        dump_network(filepath, network)
+        return save_index + 1
+    return save_index
+
+
+def main(network: Network, training_data: DataSet, test_data: DataSet) -> int:
+    save_index = 0
+    while not do_quit.is_set():
+        network.train(training_data, 60, 1.5, batch_size=50)
+        network.train(training_data, 60, 2, batch_size=100)
+        network.train(training_data, 30, 1, batch_size=300)
+        network.train(training_data, 10, 0.5)
+        save_index = update_saved(network, training_data, save_index)
+    update_saved(network, training_data, save_index)
+    return 1
+
+
+if __name__ == "__main__":
+    training_data, test_data, network = initialize()
+    try:
+        exit(main(network, training_data, test_data))
+    except KeyboardInterrupt:
+        do_quit.set()
+        exit(main(network, training_data, test_data))
